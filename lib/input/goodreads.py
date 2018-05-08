@@ -1,6 +1,5 @@
 import requests
 from xml.dom.minidom import parseString
-from htmldom import htmldom
 import time
 import json
 
@@ -10,6 +9,7 @@ currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentfram
 parentdir = os.path.dirname(currentdir)
 sys.path.insert(0,parentdir) 
 from misc.book import Book
+
 
 class GoodReads(object):
 
@@ -39,7 +39,7 @@ class GoodReads(object):
             # Making the API call for the current page
             self.api_options['page'] = page
             time.sleep(1) # the sleep is needed because GoodReads API limitations.
-            response = requests.get("https://www.goodreads.com/review/list", data = self.api_options)
+            response = requests.get("https://www.goodreads.com/review/list", data = self.api_options, verify=False)
             xml = parseString(response.content)
             xml_books = xml.getElementsByTagName('book')
             
@@ -70,15 +70,19 @@ class GoodReads(object):
                 for author in authors:
                     book.add_author(author.getElementsByTagName('name')[0].firstChild.nodeValue)
 
+                # old_isbn = xml_current_book.getElementsByTagName('isbn')
+                # if not old_isbn[0].hasAttribute('nil'):
+                #     book.add_identifier({"type": "isbn", "value": old_isbn[0].firstChild.nodeValue})
+
                 # Publication Year
                 pub_year = xml_current_book.getElementsByTagName('publication_year')
-                if (pub_year and (not pub_year[0].hasAttribute('nil'))):
-                    book.publication_year(pub_year[0].firstChild.nodeValue)
+                # if not pub_year[0].hasAttribute('nil'):
+                book.publication_year = int(pub_year[0].firstChild.nodeValue)
 
                 # Publisher
                 publisher = xml_current_book.getElementsByTagName('publisher')
-                if (publisher and (not publisher[0].hasAttribute('nil'))):
-                    book.publisher(publisher[0].firstChild.nodeValue)
+                # if not publisher[0].hasAttribute['nil']:
+                book.publisher = publisher[0].firstChild.nodeValue
 
                 isbn_list.append(book)
 
