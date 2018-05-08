@@ -6,6 +6,7 @@ import time
 import re
 from bs4 import BeautifulSoup
 from os.path import splitext
+from lib.misc.book import Book
 
 class Libgen(object):
 
@@ -14,64 +15,69 @@ class Libgen(object):
         self.lg = libgenapi.Libgenapi(mirrors)
         self.isbn_list = isbn_list
 
+
     def find_single(self, book):
         '''
             Tries to find a single book in the database based on it's ISBN or ISBN13.
         '''
-        download_url = None
-
+        download_urls = []
+        if not hasattr(book, 'title'):
+            return download_urls
         # Trying to download via ISBN or via ISBN13
-        for identifier in book.identifier:
-            if identifier.get('type') == 'isbn':
-                download_urls = self.inner_find(identifier.get('value'))
-            elif identifier.get('type') == 'isbn3':
-                download_urls = self.inner_find(identifier.get('value'))
+        if hasattr(book, 'identifier') and len(book.identifier)!=0:
+            for identifier in book.identifier:
+                if identifier.get('type') == 'isbn':
+                    download_urls = self.inner_find(identifier.get('value'))
+                elif identifier.get('type') == 'isbn3':
+                    download_urls = self.inner_find(identifier.get('value'))
 
         # if 'isbn' in book.identifier:
         #     download_url = self.inner_find(book.identifier.get('isbn'))
         # if 'isbn13' in book.identifier:
         #     download_url = self.inner_find(book.identifier.get('isbn13'))
 
-        if len(download_urls) !=0:
-            print("[FOUND] Book {} found.".format(book.title))
+        if download_urls is not None and len(download_urls) !=0:
+                print("[FOUND] Book {} found.".format(book.title))
         else:
-            print("[ERROR] Book {} not found.".format(book.title))
+                print("[ERROR] Book {} not found.".format(book.title))
 
         return download_urls
 
     def find(self):
         total = len(self.isbn_list)
-        download_urls = [] # Success
+        download_urls_list = [] # Success
 
         for book in self.isbn_list:
-            time.sleep(1)
-            current = self.find_single(book)
-            if (current): download_urls.append(current)
+            time.sleep(5)
+            download_urls = self.find_single(book)
+            if download_urls is not None and len(download_urls) != 0:
+                download_urls_list.append(download_urls)
 
         print("=== Summary ===")
-        print("Success: {}".format(str(len(download_urls))))
+        print("Success: {}".format(str(len(download_urls_list))))
         print("Total: {}".format(str(total)))
-        return download_urls
+        return download_urls_list
 
     def download_single(self, book, find=True):
         download_urls = self.find_single(book)
-        download_urls = download_urls if find and download_urls is not None else book
-        for download_url in download_urls:
-            if download_url:
-                filename = "downloads/" + re.sub(r'(\W+)', "", book.title) + download_url.get('extension')
-                if self.inner_download(url=download_url.get('url'), filename=(filename)) == True:
-                    return
+        download_urls = download_urls if find and download_urls is not None else []
+        if download_urls is not None and len(download_urls) != 0:
+            for download_url in download_urls:
+                if download_url:
+                    if hasattr(book, 'title'):
+                        filename = "downloads/" + re.sub(r'(\W+)', "", book.title) + download_url.get('extension')
+                    else:
+                        filename = "downloads/" + re.sub(r'(\W+)', "", str(time.time())) + download_url.get('extension')
+                    if self.inner_download(url=download_url.get('url'), filename=(filename)) == True:
+                        return
 
     def download(self):
-        download_urls = self.find()
-        for download in download_urls:
-            time.sleep(1)
-            self.download_single(download, find=False)
-
-    def has_download_text(self, tag):
-        regex_download = re.compile("/download|Download|download now|Download Now|DOWNLOAD NOW|DOWNLOAD|Get|get|GET|Get now|GET NOW/i")
-        if tag.find(string=regex_download):
-            return tag.get('href')
+        for book in self.isbn_list:
+            self.download_single(book, find=True)
+        # download_urls_list = self.find()
+        # for download_urls in download_urls_list:
+        #     time.sleep(5)
+        #     self.download_single(download_urls, find=True)
 
     # Private methods
     def inner_find(self, isbn):
